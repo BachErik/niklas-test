@@ -17,16 +17,21 @@ def replace_pattern(match):
 if __name__ == "__main__":
     input = sys.stdin.read()
     config.load_incluster_config()
-    #config.load_kube_config()
     api_instance = client.CoreV1Api()
     manifest_files = list(yaml.safe_load_all(input))
+    invalid_manifest_files = []
     pattern = r'<([a-z0-9](?:[-a-z0-9]*[a-z0-9])?):(secret|configmap):([a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*):([-._a-zA-Z0-9]+)>'
-    for manifest in manifest_files:
-        if manifest["kind"] == "Secret":
-            for key in manifest["data"]:
-                secret = base64.b64decode(manifest["data"][key]).decode()
-                encoded_secret = base64.b64encode(re.sub(pattern, replace_pattern, secret).encode("ascii")).decode()
-                manifest["data"][key] = encoded_secret
+    for index, manifest in enumerate(manifest_files):
+        if manifest.get("apiVersion") and manifest.get("kind") and manifest.get("metadata"):
+            if manifest["apiVersion"].startswith("v") and manifest["kind"] == "Secret" and manifest.get("data"):
+                for key in manifest["data"]:
+                    secret = base64.b64decode(manifest["data"][key]).decode()
+                    encoded_secret = base64.b64encode(re.sub(pattern, replace_pattern, secret).encode("ascii")).decode()
+                    manifest["data"][key] = encoded_secret
+        else:
+            invalid_manifest_files.append(index)
+    for invalid_manifest in invalid_manifest_files:
+        del manifest_files[invalid_manifest]
     input = yaml.safe_dump_all(manifest_files, default_flow_style=False)
     output = re.sub(pattern, replace_pattern, input)
     print(output, end="")
