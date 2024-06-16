@@ -21,7 +21,11 @@ if __name__ == "__main__":
     manifest_files = list(yaml.safe_load_all(input))
     manifest_files = [x for x in manifest_files if x is not None]
     invalid_manifest_files = []
-    pattern = r'<([a-z0-9](?:[-a-z0-9]*[a-z0-9])?):(secret|configmap):([a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*):([-._a-zA-Z0-9]+)>'
+    namespace_pattern = r'[a-z0-9](?:[-a-z0-9]*[a-z0-9])?'
+    type_pattern = r'secret|configmap'
+    name_pattern = r'[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*'
+    key_pattern = r'[-._a-zA-Z0-9]+'
+    pattern = rf'<({namespace_pattern}):({type_pattern}):({name_pattern}):({key_pattern})>'
     for index, manifest in enumerate(manifest_files):
         if manifest.get("apiVersion") and manifest.get("kind") and manifest.get("metadata"):
             if manifest["apiVersion"].startswith("v") and manifest["kind"] == "Secret" and manifest.get("data"):
