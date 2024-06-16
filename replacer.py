@@ -19,6 +19,7 @@ if __name__ == "__main__":
     config.load_incluster_config()
     api_instance = client.CoreV1Api()
     manifest_files = list(yaml.safe_load_all(input))
+    manifest_files = [x for x in manifest_files if x is not None]
     invalid_manifest_files = []
     pattern = r'<([a-z0-9](?:[-a-z0-9]*[a-z0-9])?):(secret|configmap):([a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*):([-._a-zA-Z0-9]+)>'
     for index, manifest in enumerate(manifest_files):
