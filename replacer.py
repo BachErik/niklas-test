@@ -37,6 +37,6 @@ if __name__ == "__main__":
             invalid_manifest_files.append(index)
     for invalid_manifest in invalid_manifest_files:
         del manifest_files[invalid_manifest]
-    input = yaml.safe_dump_all(manifest_files, default_flow_style=False)
+    input = yaml.safe_dump_all(manifest_files, default_flow_style=False, sort_keys=False)
     output = re.sub(pattern, replace_pattern, input)
     print(output, end="")
