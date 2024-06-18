@@ -19,6 +19,7 @@ if __name__ == "__main__":
     config.load_incluster_config()
     api_instance = client.CoreV1Api()
     manifest_files = list(yaml.safe_load_all(input))
+    print(manifest_files)
     manifest_files = [x for x in manifest_files if x is not None]
     invalid_manifest_files = []
     namespace_pattern = r'[a-z0-9](?:[-a-z0-9]*[a-z0-9])?'
@@ -40,4 +41,3 @@ if __name__ == "__main__":
     input = yaml.safe_dump_all(manifest_files, default_flow_style=False, sort_keys=False)
     output = re.sub(pattern, replace_pattern, input)
     #print(output, end="")
-    print(manifest_files)
