@@ -65,15 +65,15 @@ if __name__ == "__main__":
     pattern = rf'<({namespace_pattern}):({type_pattern}):({name_pattern}):({key_pattern})>'
 
     api_instance = client.CoreV1Api()
-    if args.argocd_mode:
-        application_namespace = os.getenv("ARGOCD_APP_NAMESPACE")
-        application = os.getenv("ARGOCD_APP_NAME")
-        patch = {
-            "data": {
-                f"{application_namespace}.{application}": None
-            }
-        }
-        api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
+    #if args.argocd_mode:
+    #    application_namespace = os.getenv("ARGOCD_APP_NAMESPACE")
+    #    application = os.getenv("ARGOCD_APP_NAME")
+    #    patch = {
+    #        "data": {
+    #            f"{application_namespace}.{application}": None
+    #        }
+    #    }
+    #    api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
 
     for index, manifest in enumerate(manifest_files):
         if is_valid_manifest(manifest):
