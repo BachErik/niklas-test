@@ -13,8 +13,7 @@ def process_data(match: re.Match):
     if args.argocd_mode:
         application_namespace = os.getenv("ARGOCD_APP_NAMESPACE")
         application = os.getenv("ARGOCD_APP_NAME")
-        application_source_path = os.getenv("ARGOCD_APP_SOURCE_PATH")
-        add_resource_reference(application_namespace, application, application_source_path, namespace, type, name)
+        add_resource_reference(application_namespace, application, namespace, type, name)
     return secret_value
 
 def get_data(namespace: str, type: str, name: str, key: str) -> str:
@@ -24,27 +23,27 @@ def get_data(namespace: str, type: str, name: str, key: str) -> str:
     secret = api_instance.read_namespaced_secret(name, namespace)
     return base64.b64decode(secret.data.get(key)).decode()
 
-def add_resource_reference(application_namespace: str, application: str, application_source_path: str, namespace: str, type: str, name: str):
+def add_resource_reference(application_namespace: str, application: str, namespace: str, type: str, name: str):
     config_map = api_instance.read_namespaced_config_map("kph", args.argocd_namespace)
     patch = {
         "data": {}
     }
     if config_map.data is not None:
-        if config_map.data.get(f"{application_namespace}.{application}/{application_source_path}") is not None:
-            if f"{namespace}.{type}.{name}" not in config_map.data[f"{application_namespace}.{application}/{application_source_path}"].split("/"):
-                patch["data"][f"{application_namespace}.{application}/{application_source_path}"] = config_map.data[f"{application_namespace}.{application}/{application_source_path}"]
+        if config_map.data.get(f"{application_namespace}.{application}") is not None:
+            if f"{namespace}.{type}.{name}" not in config_map.data[f"{application_namespace}.{application}"].split("/"):
+                patch["data"][f"{application_namespace}.{application}"] = config_map.data[f"{application_namespace}.{application}"]
             else:
                 return
         else:
-            patch["data"][f"{application_namespace}.{application}/{application_source_path}"] = ""
+            patch["data"][f"{application_namespace}.{application}"] = ""
     else:
-        patch["data"][f"{application_namespace}.{application}/{application_source_path}"] = ""
-    resources = patch["data"][f"{application_namespace}.{application}/{application_source_path}"].split("/")
+        patch["data"][f"{application_namespace}.{application}"] = ""
+    resources = patch["data"][f"{application_namespace}.{application}"].split("/")
     resources.append(f"{namespace}.{type}.{name}")
     resources = "/".join(resources)
     if resources.startswith("/"):
         resources = resources[1:]
-    patch["data"][f"{application_namespace}.{application}/{application_source_path}"] = resources
+    patch["data"][f"{application_namespace}.{application}"] = resources
     api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
 
 if __name__ == "__main__":
