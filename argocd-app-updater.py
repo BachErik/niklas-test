@@ -1,4 +1,4 @@
-import helper, argparse, threading, socket
+import helper, argparse, threading, socket, os
 from queue import Queue
 from kubernetes import client, watch
 
@@ -127,16 +127,21 @@ if __name__ == "__main__":
     api_instance = client.CoreV1Api()
     custom_api_instance = client.CustomObjectsApi()
     reference_queue = Queue()
-    process_queue_thread = threading.Thread(target=process_queue)
-    client_acceptor_thread = threading.Thread(target=client_acceptor)
-    watch_config_map_thread = threading.Thread(target=watch_config_maps)
-    watch_secret_thread = threading.Thread(target=watch_secrets)
-    watch_application_thread = threading.Thread(target=watch_applications)
-    process_queue_thread.start()
-    client_acceptor_thread.start()
-    watch_config_map_thread.start()
-    watch_secret_thread.start()
-    watch_application_thread.start()
+    process_queue_thread = threading.Thread(target=process_queue, daemon=True)
+    client_acceptor_thread = threading.Thread(target=client_acceptor, daemon=True)
+    watch_config_map_thread = threading.Thread(target=watch_config_maps, daemon=True)
+    watch_secret_thread = threading.Thread(target=watch_secrets, daemon=True)
+    watch_application_thread = threading.Thread(target=watch_applications, daemon=True)
+    try:
+        process_queue_thread.start()
+        client_acceptor_thread.start()
+        watch_config_map_thread.start()
+        watch_secret_thread.start()
+        watch_application_thread.start()
+    except KeyboardInterrupt:
+        os.exit(0)
+    except:
+        raise
     process_queue_thread.join()
     client_acceptor_thread.join()
     watch_config_map_thread.join()
