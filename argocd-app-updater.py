@@ -138,12 +138,12 @@ if __name__ == "__main__":
         watch_config_map_thread.start()
         watch_secret_thread.start()
         watch_application_thread.start()
+        process_queue_thread.join()
+        client_acceptor_thread.join()
+        watch_config_map_thread.join()
+        watch_secret_thread.join()
+        watch_application_thread.join()
     except KeyboardInterrupt:
         os.exit(0)
     except:
         raise
-    process_queue_thread.join()
-    client_acceptor_thread.join()
-    watch_config_map_thread.join()
-    watch_secret_thread.join()
-    watch_application_thread.join()
