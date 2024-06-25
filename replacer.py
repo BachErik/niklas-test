@@ -1,4 +1,4 @@
-import helper, argparse, sys, yaml, re, base64, os
+import helper, argparse, sys, yaml, re, base64, os, socket
 from kubernetes import client
 
 def is_valid_manifest(manifest) -> bool:
@@ -8,12 +8,12 @@ def is_secret_manifest(manifest) -> bool:
     return is_valid_manifest(manifest) and manifest["apiVersion"].startswith("v") and manifest["kind"] == "Secret" and manifest.get("data")
 
 def process_data(match: re.Match):
-    namespace, type, name, key = match.groups()
-    secret_value = get_data(namespace, type, name, key)
+    resource_namespace, resource_type, resource, resource_key = match.groups()
+    secret_value = get_data(resource_namespace, resource_type, resource, resource_key)
     if args.argocd_mode:
         application_namespace = os.getenv("ARGOCD_APP_NAMESPACE")
         application = os.getenv("ARGOCD_APP_NAME")
-        add_resource_reference(application_namespace, application, namespace, type, name)
+        add_resource_reference(application_namespace, application, resource_namespace, resource_type, resource)
     return secret_value
 
 def get_data(namespace: str, type: str, name: str, key: str) -> str:
@@ -23,33 +23,18 @@ def get_data(namespace: str, type: str, name: str, key: str) -> str:
     secret = api_instance.read_namespaced_secret(name, namespace)
     return base64.b64decode(secret.data.get(key)).decode()
 
-def add_resource_reference(application_namespace: str, application: str, namespace: str, type: str, name: str):
-    config_map = api_instance.read_namespaced_config_map("kph", args.argocd_namespace)
-    patch = {
-        "data": {}
-    }
-    if config_map.data is not None:
-        if config_map.data.get(f"{application_namespace}.{application}") is not None:
-            if f"{namespace}.{type}.{name}" not in config_map.data[f"{application_namespace}.{application}"].split("/"):
-                patch["data"][f"{application_namespace}.{application}"] = config_map.data[f"{application_namespace}.{application}"]
-            else:
-                return
-        else:
-            patch["data"][f"{application_namespace}.{application}"] = ""
-    else:
-        patch["data"][f"{application_namespace}.{application}"] = ""
-    resources = patch["data"][f"{application_namespace}.{application}"].split("/")
-    resources.append(f"{namespace}.{type}.{name}")
-    resources = "/".join(resources)
-    if resources.startswith("/"):
-        resources = resources[1:]
-    patch["data"][f"{application_namespace}.{application}"] = resources
-    api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
+def add_resource_reference(application_namespace: str, application: str, resource_namespace: str, resource_type: str, resource: str):
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((args.host, args.port))
+    client.send(f"{application_namespace} {application} {resource_namespace} {resource_type} {resource}".encode("utf-8"))
+    client.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--argocd-namespace", "-an", help="Argocd Namespace", type=str, default="argocd")
     parser.add_argument("--argocd-mode", "-am", action="store_true")
+    parser.add_argument("--host", help="Host", type=str, default="127.0.0.1")
+    parser.add_argument("--port", "-p", type=int, default=1234)
     args = parser.parse_args()
     helper.load_config()
 
