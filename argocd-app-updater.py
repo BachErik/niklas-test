@@ -138,10 +138,12 @@ def client_handler(client_socket: socket.socket, address):
                 resource_type = message.split(" ")[3]
                 resource = message.split(" ")[4]
                 reference_queue.put((client_socket, application_namespace, application, resource_namespace, resource_type, resource))
+            else:
+                client_socket.close()
             break
         except:
+            client_socket.close()
             break
-    client_socket.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
