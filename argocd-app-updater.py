@@ -38,6 +38,7 @@ def watch_applications():
                         if "kph/app-cleanup" in application_finalizers and len(application_finalizers) == 1:
                             lock.acquire()
                             tmp_reference_queue = Queue()
+                            global reference_queue
                             while not reference_queue.empty():
                                 queue_client_socket, queue_application_namespace, queue_application, queue_resource_namespace, queue_resource_type, queue_resource = reference_queue.get()
                                 if queue_application_namespace == application_namespace and queue_application == application_name:
