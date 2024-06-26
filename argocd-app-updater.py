@@ -1,4 +1,4 @@
-import helper, argparse, threading, socket, os
+import helper, argparse, threading, socket
 from queue import Queue
 from kubernetes import client, watch
 
@@ -26,15 +26,34 @@ def watch_secrets():
 
 def watch_applications():
     watcher = watch.Watch()
-    for event in watcher.stream(custom_api_instance.list_namespaced_custom_object, "argoproj.io", "v1alpha1", "", "applications"):
-        if event["type"] == "DELETED":
-            application = event["object"]
-            patch = {
-                "data": {
-                    f"{application.metadata.namespace}.{application.metadata.name}": None
-                }
-            }
-            api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
+    while True:
+        try:
+            for event in watcher.stream(custom_api_instance.list_namespaced_custom_object, "argoproj.io", "v1alpha1", "", "applications"):
+                if event["type"] in ["ADDED", "MODIFIED"]:
+                    application = event["object"]
+                    if application["metadata"].get("deletionTimestamp"):
+                        application_namespace = application["metadata"]["namespace"]
+                        application_name = application["metadata"]["name"]
+                        application_finalizers = application["metadata"].get("finalizers", [])
+                        if "kph/app-cleanup" in application_finalizers and len(application_finalizers) == 1:
+                            lock.acquire()
+                            patch = {
+                                "data": {
+                                    f"{application_namespace}.{application_name}": None
+                                }
+                            }
+                            api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
+                            patch = {
+                                "metadata": {
+                                    "finalizers": []
+                                }
+                            }
+                            custom_api_instance.patch_namespaced_custom_object("argoproj.io", "v1alpha1", application_namespace, "applications", application_name, patch)
+                            lock.release()
+        except client.exceptions.ApiException as exception:
+            if exception.status == 410:
+                continue
+            raise
 
 def update_helper(type: str, event):
     object = event["object"]
@@ -67,7 +86,8 @@ def update_application(namespace: str, name: str):
 
 def process_queue():
     while True:
-        application_namespace, application, resource_namespace, resource_type, resource = reference_queue.get()
+        client_socket, application_namespace, application, resource_namespace, resource_type, resource = reference_queue.get()
+        lock.acquire()
         config_map = api_instance.read_namespaced_config_map("kph", args.argocd_namespace)
         patch = {
             "data": {}
@@ -89,6 +109,8 @@ def process_queue():
             resources = resources[1:]
         patch["data"][f"{application_namespace}.{application}"] = resources
         api_instance.patch_namespaced_config_map("kph", args.argocd_namespace, patch)
+        client_socket.send("done".encode("utf-8"))
+        lock.release()
 
 def client_acceptor():
     while True:
@@ -106,7 +128,7 @@ def client_handler(client_socket: socket.socket, address):
                 resource_namespace = message.split(" ")[2]
                 resource_type = message.split(" ")[3]
                 resource = message.split(" ")[4]
-                reference_queue.put((application_namespace, application, resource_namespace, resource_type, resource))
+                reference_queue.put((client_socket, application_namespace, application, resource_namespace, resource_type, resource))
             break
         except:
             break
@@ -126,6 +148,7 @@ if __name__ == "__main__":
 
     api_instance = client.CoreV1Api()
     custom_api_instance = client.CustomObjectsApi()
+    lock = threading.Lock()
     reference_queue = Queue()
     process_queue_thread = threading.Thread(target=process_queue, daemon=True)
     client_acceptor_thread = threading.Thread(target=client_acceptor, daemon=True)
@@ -144,6 +167,6 @@ if __name__ == "__main__":
         watch_secret_thread.join()
         watch_application_thread.join()
     except KeyboardInterrupt:
-        os.exit(0)
+        exit(0)
     except:
         raise

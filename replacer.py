@@ -27,6 +27,7 @@ def add_resource_reference(application_namespace: str, application: str, resourc
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((args.host, args.port))
     client.send(f"{application_namespace} {application} {resource_namespace} {resource_type} {resource}".encode("utf-8"))
+    client.recv(1024).decode("utf-8")
     client.close()
 
 if __name__ == "__main__":
